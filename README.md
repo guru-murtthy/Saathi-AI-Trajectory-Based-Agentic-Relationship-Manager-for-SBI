@@ -13,6 +13,9 @@ Designed for the **SBI Hackathon @ GFF 2026** under **Pillar 03: Digital Engagem
 * 💻 **Frontend Web App:** [https://3fa3150c698517.lhr.life](https://3fa3150c698517.lhr.life)
 * ⚙️ **Backend API Docs:** [https://c7d7c7f82d25b9.lhr.life/docs](https://c7d7c7f82d25b9.lhr.life/docs)
 
+### 📹 Walkthrough Video
+![Saathi AI Walkthrough Demo](./saathi_walkthrough.webp)
+
 ---
 
 ## 🛠️ System Architecture & Process Flow
@@ -66,6 +69,14 @@ We have preloaded the dashboard with a representative profile, **Rahul** (28, Ba
 3. **Financial GPS:** Plans for his goal ("Buy House at ₹18L" with a ₹15L gap) and recommends saving ₹41,000/month across SBI Recurring Deposits and Mutual Fund SIPs.
 4. **Agentic RM:** The chat box details the personalized reasoning (e.g., how consistent rent payments make him an ideal candidate for an SBI Home Loan).
 5. **B2B Prospects Table:** On the bank's side, Rahul is highlighted as a high-value lead for a home loan, enabling branch RMs to proactively target and pre-approve his application.
+
+## 💎 Proprietary Intellectual Property: What is Defensible?
+
+Rather than just wrapping generic commercial LLMs or standard classification frameworks, Saathi AI introduces proprietary IP that provides a defensible moat:
+
+1. **Signal ➔ Predicted Event ➔ Financial Need Graph Schema**: A domain-specific ontology (modeled in [life_event_graph.py](file:///home/gururaj/Videos/sbi/sbi-main/backend/app/engines/life_event_graph.py)) that defines how credit and savings signals trace directly through upcoming life events and map to relevant banking products.
+2. **The FFI Feature Set**: A custom 16-dimensional financial signature (including income regularity, savings growth, discretionary spending, and rent regularity) optimized specifically to model retail and MSME readiness for long-term loans.
+3. **Consent-Gated Agentic Recommendation Loop**: A regulatory-aligned cognitive loop that natively gates model inferences and LLM narrations behind active, purpose-scoped consent records, guaranteeing compliance with the DPDP Act 2023 before any processing occurs.
 
 ---
 

@@ -37,3 +37,62 @@ def test_gps_rahul_house_plan():
     assert plan["required_monthly"] > 0
     assert sum(p["allocation_pct"] for p in plan["plan"]) == 100.0
     assert plan["feasibility"] is not None
+
+
+def test_api_endpoints_and_metrics(monkeypatch):
+    import pandas as pd
+    from app.services import store
+    from fastapi.testclient import TestClient
+    from app.main import app
+    from app.compliance.dpdp import ConsentStore
+    import os
+    
+    # Mock list_customers to only return Rahul to speed up build_index in tests
+    monkeypatch.setattr(store, "list_customers", lambda: pd.DataFrame([{
+        "customer_id": "rahul",
+        "name": "Rahul",
+        "age": 28,
+        "city": "Bangalore",
+        "segment": "retail",
+        "base_monthly_income": 65000.0,
+        "opening_savings": 400000.0,
+    }]))
+
+    # Ensure active consent for testing
+    ConsentStore.grant("rahul", "recommendation", "read")
+
+    client = TestClient(app)
+    
+    # 1. Test FFI Endpoint (triggers timing log)
+    res_ffi = client.get("/api/v1/customers/rahul/ffi")
+    assert res_ffi.status_code == 200
+    assert "ffi" in res_ffi.json()
+
+    # 2. Test RM Chat Endpoint (triggers timing log)
+    res_rm = client.post("/api/v1/customers/rahul/rm", json={"question": "What is the recommended product?"})
+    assert res_rm.status_code == 200
+    assert "narrative" in res_rm.json()
+
+    # 3. Test Compliance Audit Endpoint
+    res_audit = client.get("/api/v1/compliance/audit/rahul")
+    assert res_audit.status_code == 200
+    audit_data = res_audit.json()
+    assert len(audit_data) > 0
+    assert audit_data[0]["customer_id"] == "rahul"
+
+    # 4. Test Feedback Endpoint
+    res_fb = client.post("/api/v1/feedback", json={
+        "customer_id": "rahul",
+        "thumbs_up": True,
+        "comment": "Outstanding, personalized recommendation!"
+    })
+    assert res_fb.status_code == 200
+    assert res_fb.json()["status"] == "success"
+
+    # Verify that log files were created
+    perf_log = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "performance.log")
+    feedback_log = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "feedback.jsonl")
+    
+    assert os.path.exists(perf_log)
+    assert os.path.exists(feedback_log)
+

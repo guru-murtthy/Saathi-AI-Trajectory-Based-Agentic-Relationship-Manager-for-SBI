@@ -58,8 +58,21 @@ def get_life_events(customer_id: str):
 
 @router.get("/customers/{customer_id}/ffi")
 def get_ffi(customer_id: str):
+    import time
+    from pathlib import Path
     feats = _features_or_404(customer_id)
-    return {"customer_id": customer_id, **compute_ffi(feats)}
+    
+    t0 = time.perf_counter()
+    res = compute_ffi(feats)
+    duration = time.perf_counter() - t0
+    
+    print(f"[METRIC] FFI inference latency: {duration:.4f}s")
+    perf_log = Path(__file__).resolve().parent.parent.parent / "data" / "performance.log"
+    perf_log.parent.mkdir(exist_ok=True)
+    with open(perf_log, "a", encoding="utf-8") as f:
+        f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} - ffi_inference - {duration:.4f}s\n")
+        
+    return {"customer_id": customer_id, **res}
 
 
 @router.get("/customers/{customer_id}/future-graph")
@@ -104,8 +117,58 @@ class RMRequest(BaseModel):
 
 @router.post("/customers/{customer_id}/rm")
 def post_rm(customer_id: str, req: RMRequest):
+    import time
+    from pathlib import Path
     _features_or_404(customer_id)
-    return advise(customer_id, req.question)
+    
+    t0 = time.perf_counter()
+    res = advise(customer_id, req.question)
+    duration = time.perf_counter() - t0
+    
+    print(f"[METRIC] LLM narration latency (RM advice): {duration:.4f}s")
+    perf_log = Path(__file__).resolve().parent.parent.parent / "data" / "performance.log"
+    perf_log.parent.mkdir(exist_ok=True)
+    with open(perf_log, "a", encoding="utf-8") as f:
+        f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} - llm_narration - {duration:.4f}s\n")
+        
+    return res
+
+
+@router.get("/compliance/audit/{customer_id}")
+def get_compliance_audit(customer_id: str):
+    _features_or_404(customer_id)
+    from app.compliance.audit_log import AuditLogger
+    return AuditLogger.get_logs(customer_id)
+
+
+class FeedbackRequest(BaseModel):
+    customer_id: str
+    thumbs_up: bool
+    comment: str | None = None
+
+
+@router.post("/feedback")
+def post_feedback(req: FeedbackRequest):
+    from pathlib import Path
+    import json
+    import uuid
+    from datetime import datetime
+    
+    feedback_file = Path(__file__).resolve().parent.parent.parent / "data" / "feedback.jsonl"
+    feedback_file.parent.mkdir(exist_ok=True)
+    
+    entry = {
+        "feedback_id": str(uuid.uuid4()),
+        "customer_id": req.customer_id,
+        "thumbs_up": req.thumbs_up,
+        "comment": req.comment,
+        "timestamp": datetime.utcnow().isoformat() + "Z"
+    }
+    
+    with open(feedback_file, "a", encoding="utf-8") as f:
+        f.write(json.dumps(entry) + "\n")
+        
+    return {"status": "success", "feedback_id": entry["feedback_id"]}
 
 
 @router.get("/sbi/prospects")

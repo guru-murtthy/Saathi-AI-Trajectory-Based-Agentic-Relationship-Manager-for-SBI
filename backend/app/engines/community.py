@@ -48,7 +48,15 @@ def build_index() -> int:
         import chromadb
 
         client = chromadb.Client()
-        _collection = client.get_or_create_collection("saathi_customers")
+        
+        class MockEmbeddingFunction:
+            def __call__(self, input):
+                return [[0.0] * 16 for _ in input]
+
+        _collection = client.get_or_create_collection(
+            name="saathi_customers",
+            embedding_function=MockEmbeddingFunction()
+        )
     except Exception:
         _collection = None
 

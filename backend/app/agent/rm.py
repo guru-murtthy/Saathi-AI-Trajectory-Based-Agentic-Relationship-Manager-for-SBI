@@ -79,6 +79,31 @@ def _recommendation(ctx: dict) -> dict:
 def advise(customer_id: str, question: str | None = None) -> dict:
     if store.get_features(customer_id) is None:
         return {"error": "customer not found"}
+        
+    # 1. Regulatory Consent Gate Check (DPDP Act 2023)
+    from app.compliance.dpdp import ConsentStore
+    if not ConsentStore.is_active(customer_id, "recommendation"):
+        return {
+            "customer_id": customer_id,
+            "error": "Consent not active for customer",
+            "narrative": "Access denied: Purpose-scoped consent for generating recommendations under the DPDP Act 2023 has not been granted or has expired for this customer.",
+            "loop": {
+                "observe": {
+                    "ffi": 0,
+                    "top_dna": "none",
+                },
+                "reason": "DPDP consent not active.",
+                "predict": {"event": "none", "probability": 0.0},
+                "explain": [],
+                "recommend": {
+                    "action": "Obtain DPDP consent",
+                    "product": "Consent Management",
+                    "reasoning": "DPDP consent is required to process customer transactions and profile for recommendations.",
+                    "requires_human_approval": True,
+                },
+            },
+        }
+
     observed = _observe(customer_id)
     rec = _recommendation(observed)
     name = observed["customer"].get("name", customer_id)
@@ -94,6 +119,16 @@ def advise(customer_id: str, question: str | None = None) -> dict:
     )
     narrative = generate(SYSTEM, narrative_prompt)
 
+    # 2. Append-only Audit Logging (DPDP / RBI compliance)
+    from app.compliance.audit_log import AuditLogger
+    signals = [s["signal"] for s in observed["events"][0].get("signals", [])]
+    AuditLogger.log(
+        customer_id=customer_id,
+        signal_fired=signals,
+        recommendation=rec["action"],
+        approved_by="RM"
+    )
+
     return {
         "customer_id": customer_id,
         "loop": {
@@ -108,3 +143,4 @@ def advise(customer_id: str, question: str | None = None) -> dict:
         },
         "narrative": narrative,
     }
+

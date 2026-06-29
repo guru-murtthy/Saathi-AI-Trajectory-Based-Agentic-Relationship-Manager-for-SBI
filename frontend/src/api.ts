@@ -73,4 +73,10 @@ export const api = {
   gps: (id: string, body: object) => post<GPS>(`/api/v1/customers/${id}/gps`, body),
   rm: (id: string, question?: string) => post<RM>(`/api/v1/customers/${id}/rm`, { question }),
   prospects: (event = 'home_purchase') => get<Prospects>(`/api/v1/sbi/prospects?event=${event}`),
+  feedback: (customerId: string, thumbsUp: boolean, comment: string | null) =>
+    post<{ status: string; feedback_id: string }>('/api/v1/feedback', {
+      customer_id: customerId,
+      thumbs_up: thumbsUp,
+      comment,
+    }),
 };

@@ -53,3 +53,60 @@ def test_rahul_ffi_in_range():
     assert 0 <= res["ffi"] <= 100
     assert res["sub_scores"]["home_ownership"] > 60
     assert res["top_drivers"]
+
+
+def test_consent_gate():
+    from app.compliance.dpdp import ConsentStore
+    from app.agent.rm import advise
+
+    # 1. Assert default active consent (backward-compatible)
+    assert ConsentStore.is_active("rahul", "recommendation") is True
+
+    # 2. Revoke consent and assert it is blocked
+    ConsentStore.revoke("rahul", "recommendation")
+    assert ConsentStore.is_active("rahul", "recommendation") is False
+
+    res = advise("rahul")
+    assert "error" in res
+    assert "Consent not active" in res["error"]
+    assert "Obtain DPDP consent" in res["loop"]["recommend"]["action"]
+
+    # 3. Grant consent back and assert recommendations work again
+    ConsentStore.grant("rahul", "recommendation", "read")
+    assert ConsentStore.is_active("rahul", "recommendation") is True
+    res2 = advise("rahul")
+    assert "error" not in res2
+
+
+def test_datasource_adapter():
+    from app.data.adapters.synthetic_datasource import SyntheticDataSource
+
+    ds = SyntheticDataSource()
+    tx = ds.get_transactions("rahul")
+    assert not tx.empty
+
+    bal = ds.get_balances("rahul")
+    assert bal["opening_savings"] == 400000.0
+    assert bal["current_savings"] > 0
+
+
+def test_llm_fallback():
+    import os
+    from app.agent.llm import generate
+
+    old_provider = os.getenv("SAATHI_LLM_PROVIDER", "offline")
+    old_key = os.getenv("GEMINI_API_KEY")
+
+    try:
+        os.environ["SAATHI_LLM_PROVIDER"] = "gemini"
+        if "GEMINI_API_KEY" in os.environ:
+            del os.environ["GEMINI_API_KEY"]
+
+        res = generate("system prompt", "user query")
+        assert "[offline fallback:" in res
+        assert "user query" in res
+    finally:
+        os.environ["SAATHI_LLM_PROVIDER"] = old_provider
+        if old_key is not None:
+            os.environ["GEMINI_API_KEY"] = old_key
+
